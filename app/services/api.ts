@@ -21,3 +21,7 @@ export const postData = (data: {
 }) => {
     return axios.post(ENV+"posts", data);
 }
+
+export const getComments = (postId: number) => {
+    return axios.get(ENV + "posts/" + postId + "/comments");
+}
