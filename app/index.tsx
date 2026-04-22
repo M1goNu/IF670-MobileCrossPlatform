@@ -1,7 +1,9 @@
 import { Camera } from "expo-camera";
+import { File, Paths } from "expo-file-system/next";
 import * as ImagePicker from "expo-image-picker";
+import * as MediaLibrary from "expo-media-library";
 import { useState } from "react";
-import { Button, Image, Text, View } from "react-native";
+import { Alert, Button, Image, Text, View } from "react-native";
 import { styles } from "./appStyle";
 
 export default function Index() {
@@ -45,6 +47,28 @@ export default function Index() {
     }
   };
 
+  // 💾 SAVE IMAGE
+  const saveImage = async () => {
+    if (!image) {
+      alert("No image to save!");
+      return;
+    }
+
+    try {
+      const fileName = `saved_image_${Date.now()}.jpg`;
+      const dest = new File(Paths.document, fileName);
+      const source = new File(image);
+      source.copy(dest);
+
+      await MediaLibrary.saveToLibraryAsync(dest.uri);
+
+      Alert.alert("Success", "Image saved to gallery successfully!");
+    } catch (error) {
+      console.error("Save error:", error);
+      Alert.alert("Error", "Failed to save image.");
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.text}>
@@ -60,7 +84,13 @@ export default function Index() {
       </View>
 
       {image && (
-        <Image source={{ uri: image }} style={styles.image} />
+        <>
+          <Image source={{ uri: image }} style={styles.image} />
+
+          <View style={styles.button}>
+            <Button title="SAVE IMAGE" onPress={saveImage} />
+          </View>
+        </>
       )}
     </View>
   );
