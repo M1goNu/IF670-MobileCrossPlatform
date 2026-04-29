@@ -1,7 +1,7 @@
 import * as Location from "expo-location";
 import React, { useRef, useState } from "react";
 import { ActivityIndicator, Button, Image, Text, TouchableOpacity, View, } from "react-native";
-import MapView, { MapPressEvent, Marker, Region } from "react-native-maps";
+import MapView, { MapPressEvent, Marker, Region, UrlTile } from "react-native-maps";
 import { styles } from "./appStyle";
 
 type Coordinates = {
@@ -27,7 +27,7 @@ export default function App() {
       return;
     }
 
-    setIsRefreshing(true); 
+    setIsRefreshing(true);
 
     const loc = await Location.getCurrentPositionAsync({});
     const coords: Coordinates = {
@@ -48,7 +48,7 @@ export default function App() {
       500
     );
 
-    setIsRefreshing(false); 
+    setIsRefreshing(false);
   };
 
   const handleRegionChangeStart = () => {
@@ -86,11 +86,11 @@ export default function App() {
 
   const initialRegion: Region | undefined = location
     ? {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      }
+      latitude: location.latitude,
+      longitude: location.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    }
     : undefined;
 
   return (
@@ -103,38 +103,39 @@ export default function App() {
         <>
           <View style={styles.mapContainer}>
             <MapView
-  ref={mapRef}
-  style={styles.map}
-  initialRegion={initialRegion}
-  onRegionChangeStart={handleRegionChangeStart}
-  onRegionChange={handleRegionChange}
-  onRegionChangeComplete={handleRegionChangeComplete}
-  onPress={handleMapPress}
-  scrollEnabled={mode === "drag"}
->
-  {mode === "tap" && markerCoords && (
-    <Marker
-      coordinate={markerCoords}
-      title="My Location"
-      draggable={false}
-    />
-  )}
-</MapView>
+              ref={mapRef}
+              style={styles.map}
+              initialRegion={initialRegion}
+              onRegionChangeStart={handleRegionChangeStart}
+              onRegionChange={handleRegionChange}
+              onRegionChangeComplete={handleRegionChangeComplete}
+              onPress={handleMapPress}
+              scrollEnabled={mode === "drag"}
+            >
+              <UrlTile urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              {mode === "tap" && markerCoords && (
+                <Marker
+                  coordinate={markerCoords}
+                  title="My Location"
+                  draggable={false}
+                />
+              )}
+            </MapView>
 
-{mode === "drag" && (
-  <View style={styles.markerContainer} pointerEvents="none">
-    <Image
-      source={{
-        uri: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
-      }}
-      style={[
-        styles.markerIcon,
-        isDragging && { transform: [{ translateY: -8 }] },
-      ]}
-    />
-    <View style={styles.markerShadow} />
-  </View>
-)}
+            {mode === "drag" && (
+              <View style={styles.markerContainer} pointerEvents="none">
+                <Image
+                  source={{
+                    uri: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
+                  }}
+                  style={[
+                    styles.markerIcon,
+                    isDragging && { transform: [{ translateY: -8 }] },
+                  ]}
+                />
+                <View style={styles.markerShadow} />
+              </View>
+            )}
             <View style={styles.modeBadge}>
               <Text style={styles.modeBadgeText}>
                 {mode === "drag"
