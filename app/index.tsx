@@ -1,51 +1,97 @@
-import { supabase } from '@/lib/supabase';
-import React from 'react';
-import { Alert, Button, StyleSheet, Text, View } from 'react-native';
+import { Camera } from "expo-camera";
+import { File, Paths } from "expo-file-system/next";
+import * as ImagePicker from "expo-image-picker";
+import * as MediaLibrary from "expo-media-library";
+import { useState } from "react";
+import { Alert, Button, Image, Text, View } from "react-native";
+import { styles } from "./appStyle";
 
-const Index = () => {
-  const addData = async () => {
+export default function Index() {
+  const [image, setImage] = useState<string | null>(null);
+
+  // 📷 OPEN CAMERA
+  const openCamera = async () => {
+    const permission = await Camera.requestCameraPermissionsAsync();
+
+    if (!permission.granted) {
+      alert("Camera permission is required!");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+    }
+  };
+
+  // 🖼️ OPEN GALLERY
+  const openGallery = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      alert("Gallery permission is required!");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+    }
+  };
+
+  // 💾 SAVE IMAGE
+  const saveImage = async () => {
+    if (!image) {
+      alert("No image to save!");
+      return;
+    }
+
     try {
-      // Mencoba memasukkan data ke tabel 'users' di Supabase
-      const { error } = await supabase.from('users').insert([
-        {
-          first: 'Ada',
-          last: 'Lovelace',
-          birth: 1815,
-        },
-      ]);
+      const fileName = `saved_image_${Date.now()}.jpg`;
+      const dest = new File(Paths.document, fileName);
+      const source = new File(image);
+      source.copy(dest);
 
-      if (error) throw error;
+      await MediaLibrary.saveToLibraryAsync(dest.uri);
 
-      // Menampilkan pesan sukses jika data berhasil ditambahkan
-      Alert.alert('Sukses', 'Data berhasil ditambahkan.');
-    } catch (error: unknown) {
-      const errorMessage = (error as { message?: string })?.message ?? 'Gagal menambahkan data.';
-      Alert.alert('Error', errorMessage);
+      Alert.alert("Success", "Image saved to gallery successfully!");
+    } catch (error) {
+      console.error("Save error:", error);
+      Alert.alert("Error", "Failed to save image.");
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Uji koneksi Supabase</Text>
-      <Button title="Tambah Data" onPress={addData} />
+      <Text style={styles.text}>
+        Rifqi Aldino Amin - 00000093743
+      </Text>
+
+      <View style={styles.button}>
+        <Button title="OPEN CAMERA" onPress={openCamera} />
+      </View>
+
+      <View style={styles.button}>
+        <Button title="OPEN GALLERY" onPress={openGallery} />
+      </View>
+
+      {image && (
+        <>
+          <Image source={{ uri: image }} style={styles.image} />
+
+          <View style={styles.button}>
+            <Button title="SAVE IMAGE" onPress={saveImage} />
+          </View>
+        </>
+      )}
     </View>
   );
-};
-
-export default Index;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#f5f7fb',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 16,
-    color: '#1f2937',
-  },
-});
+}
