@@ -62,6 +62,12 @@
           "savePhotosPermission": "Allow $(PRODUCT_NAME) to save photos to your library",
           "isAccessMediaLocationEnabled": true
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow app to access your location."
+        }
       ]
     ],
     "experiments": {
