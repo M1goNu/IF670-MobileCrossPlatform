@@ -3,9 +3,10 @@ import { File, Paths } from "expo-file-system/next";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import * as MediaLibrary from "expo-media-library";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Button, Image, ScrollView, Text, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
+import { requestNotificationPermission, sendFailedNotification, sendSuccessNotification } from "../lib/notification";
 import { supabase } from "../lib/supabase";
 import { styles } from "./appStyle";
 
@@ -17,6 +18,10 @@ export default function Index() {
   } | null>(null);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
 
   // 📷 OPEN CAMERA
   const openCamera = async () => {
@@ -66,22 +71,28 @@ export default function Index() {
     }
 
     setLoading(true);
+    let latitude = 0;
+    let longitude = 0;
+
     try {
+      // 1. Ambil lokasi
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         alert("Location permission is required!");
         return;
       }
       const loc = await Location.getCurrentPositionAsync({});
-      const latitude = loc.coords.latitude;
-      const longitude = loc.coords.longitude;
+      latitude = loc.coords.latitude;
+      longitude = loc.coords.longitude;
 
+      // 2. Simpan ke galeri lokal
       const fileName = `photo-${Date.now()}.jpeg`;
       const dest = new File(Paths.document, fileName);
       const source = new File(image);
       source.copy(dest);
       await MediaLibrary.saveToLibraryAsync(dest.uri);
 
+      // 3. Upload ke Supabase Storage
       const response = await fetch(image);
       const arrayBuffer = await response.arrayBuffer();
 
@@ -94,14 +105,16 @@ export default function Index() {
 
       if (storageError) throw storageError;
 
+      // 4. Ambil public URL
       const { data: urlData } = supabase.storage
         .from("images")
         .getPublicUrl(`camera/${fileName}`);
 
       const imageUrl = urlData.publicUrl;
 
+      // 5. Insert ke tabel map
       const { error: dbError } = await supabase
-        .from("map") // sesuaikan dengan nama tabel di Supabase
+        .from("map")
         .insert([{
           latitude: latitude.toString(),
           longitude: longitude.toString(),
@@ -110,16 +123,25 @@ export default function Index() {
 
       if (dbError) throw dbError;
 
+      // 6. Kirim notifikasi sukses
+      await sendSuccessNotification(latitude, longitude);
+
       setLocation({ latitude, longitude });
       setSaved(true);
 
-      Alert.alert("Success", "Image saved and uploaded to Supabase!");
     } catch (error: any) {
       console.error("Error:", error);
+
+      // Kirim notifikasi gagal
+      await sendFailedNotification(
+        latitude,
+        longitude,
+        error.message ?? "Unknown error"
+      );
+
       Alert.alert("Error", error.message ?? "Something went wrong.");
-    }
-    finally {
-      setLoading(false); 
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -130,50 +152,49 @@ export default function Index() {
       {saved && location ? (
         <>
           <MapView
-      style={styles.map}
-      initialRegion={{
-        latitude: location.latitude,
-        longitude: location.longitude,
-        latitudeDelta: 0.005,
-        longitudeDelta: 0.005,
-      }}
-    >
-      <Marker
-        coordinate={{
-          latitude: location.latitude,
-          longitude: location.longitude,
-        }}
-        title="Foto diambil di sini"
-        description={`${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`}
-      />
-    </MapView>
+            style={styles.map}
+            initialRegion={{
+              latitude: location.latitude,
+              longitude: location.longitude,
+              latitudeDelta: 0.005,
+              longitudeDelta: 0.005,
+            }}
+          >
+            <Marker
+              coordinate={{
+                latitude: location.latitude,
+                longitude: location.longitude,
+              }}
+              title="Foto diambil di sini"
+              description={`${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`}
+            />
+          </MapView>
 
-    <View style={styles.resultContainer}>
-      <Image
-        source={{ uri: image ?? undefined }}
-        style={styles.resultImage}
-        resizeMode="cover"
-      />
-      <View style={styles.locationBox}>
-        <Text style={styles.locationTitle}>📍 Lokasi Foto</Text>
-        <Text style={styles.locationText}>Latitude : {location.latitude.toFixed(6)}</Text>
-        <Text style={styles.locationText}>Longitude: {location.longitude.toFixed(6)}</Text>
-      </View>
-    </View>
+          <View style={styles.resultContainer}>
+            <Image
+              source={{ uri: image ?? undefined }}
+              style={styles.resultImage}
+              resizeMode="cover"
+            />
+            <View style={styles.locationBox}>
+              <Text style={styles.locationTitle}>📍 Lokasi Foto</Text>
+              <Text style={styles.locationText}>Latitude : {location.latitude.toFixed(6)}</Text>
+              <Text style={styles.locationText}>Longitude: {location.longitude.toFixed(6)}</Text>
+            </View>
+          </View>
 
-    <View style={styles.anotherButton}>
-      <Button
-        title="📷 Take Another Picture"
-        onPress={() => {
-          setImage(null);
-          setLocation(null);
-          setSaved(false);
-        }}
-      />
-    </View>
+          <View style={styles.anotherButton}>
+            <Button
+              title="📷 Take Another Picture"
+              onPress={() => {
+                setImage(null);
+                setLocation(null);
+                setSaved(false);
+              }}
+            />
+          </View>
         </>
       ) : (
-        /* ✅ HALAMAN UTAMA - sebelum save */
         <>
           <View style={styles.button}>
             <Button title="OPEN CAMERA" onPress={openCamera} />
